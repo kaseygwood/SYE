@@ -1,0 +1,132 @@
+---
+title: "nfl_dataset"
+output: html_document
+date: "2024-02-01"
+---
+
+```{r}
+library(readr)
+library(tidyverse)
+nfl_team_statistics <- read_csv("~/Desktop/Repos/SYE/project1/nfl_team_statistics.csv")
+nfl_1999 <- nfl_team_statistics |> filter(season == 1999)
+ggplot(data = nfl_1999, aes(x = team, y = offense_completion_percentage)) +
+  geom_point()
+```
+
+
+```{r}
+nfl_NE <- nfl_team_statistics |> filter(team == "NE")
+ggplot(data = nfl_NE, aes(x = season, y = offense_completion_percentage)) +
+  geom_line()
+```
+
+```{r}
+nfl_BUF <- nfl_team_statistics |> filter(team == "BUF")
+ggplot(data = nfl_BUF, aes(x = season, y = offense_completion_percentage)) +
+  geom_line()
+```
+
+# Comparing two
+```{r}
+nfl_NEBUF <- nfl_team_statistics |> filter(team == "NE" | team == "BUF")
+ggplot(data = nfl_NEBUF, aes(x = season, y = offense_completion_percentage, colour = team)) + 
+  geom_line()
+```
+
+2001 what constituted the fumble was established
+```{r}
+fumbles <- nfl_team_statistics |> 
+  mutate(total_fumbles_lost = offense_n_fumbles_lost_pass + offense_n_fumbles_lost_run) |> 
+  group_by(season) |> summarise(total_fumbles = sum(total_fumbles_lost))
+View(fumbles)
+
+ggplot(data = fumbles, aes(x = season, y = total_fumbles)) +
+  geom_line() +
+  geom_vline(xintercept = 2001, colour = "red")
+```
+
+```{r}
+View(nfl_team_statistics)
+```
+
+
+
+
+nfl r packages 
+```{sh}
+install.packages("nflverse")
+library(nflreadr)
+library(nflverse)
+# loads play-by-play data from 2019
+nfl_2019 <- load_pbp(2019)
+```
+
+```{r}
+# look at first few rows
+library(tidyverse)
+nfl_2019 |> 
+  select(posteam, defteam, desc, rush, pass) |>
+  head()
+```
+
+```{r}
+# returns only plays that are run plays and pass plays (no punts, kickoffs, field goals, or dead ball penalties)
+nfl_2019 |> 
+  filter(rush == 1 | pass == 1) |>
+  select(posteam, desc, rush, pass, name, passer, rusher, receiver) |>
+  head()
+```
+
+```{r}
+# looking at only special teams plays
+nfl_2019 |> 
+  filter(special == 1) |>
+  select(down, ydstogo, desc) |>
+  head()
+```
+
+```{r}
+# looking at fourth down plays
+nfl_2019 |> 
+  filter(down == 4) |>
+  select(down, ydstogo, desc) |>
+  head()
+```
+
+```{r}
+# fourth down that aren't special teams plays
+nfl_2019 |>
+  filter(down == 4 & special == 0) |>
+  select(down, ydstogo, desc) |>
+  head()
+```
+
+```{r}
+# run plays and pass plays with non-missing EPA
+pbp_rp <- nfl_2019 |>
+  filter(rush == 1 | pass == 1, !is.na(epa))
+```
+
+```{r}
+# how various ne running backs fared on run plays in 2019
+pbp_rp |> 
+  filter(posteam == "NE", rush == 1) |>
+  group_by(rusher) |>
+  summarize(
+    mean_epa = mean(epa), success_rate = mean(success), ypc = mean(yards_gained), plays = n()
+  ) |>
+  arrange(-mean_epa) |>
+  filter(plays > 20)
+```
+
+
+
+
+
+
+
+
+
+
+
+

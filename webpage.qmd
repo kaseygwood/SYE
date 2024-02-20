@@ -1,0 +1,44 @@
+---
+project:
+  type: website
+  resources:
+    - keybase.txt
+    - resume.pdf
+    - cv.pdf
+
+website:
+  title: "Kasey Wood"
+  site-url: 
+  description: "Technology and the Environment"
+  open-graph:
+    locale: en_US
+  twitter-card:
+    creator: "@MikeMahoney218"
+  comments:
+    utterances:
+      repo: mikemahoney218/mm218.dev
+  navbar:
+    right:
+      - text: "Home"
+        href: index.html
+      - text: "Papers"
+        href: papers
+      - text: "Presentations"
+        href: presentations
+      - text: "Blog"
+        href: blog.html
+      - icon: rss
+        href: blog.xml
+  page-footer:
+    left: "© Copyright 2024 Mike Mahoney. Except where otherwise noted, all text and images licensed CC-BY-NC 4.0."
+format:
+  html:
+    theme: [sandstone, _variables.scss]
+    css: styles.css
+---
+
+## About Me
+
+My name is Kasey Wood and I am from midcoast Maine. I am graduating with a B.S. in data science at St. Lawrence University in May 2024. The best experience I had was attending the St. Lawrence Kenya program for a semester. I am on the women's rugby team at SLU and have held various E-board positions. My skills include python programming, java programming, R programming, SQL, as well as applied statistics and regression analysis. I am currently searching for a post-undergraduate job in my discipline. 
+
+

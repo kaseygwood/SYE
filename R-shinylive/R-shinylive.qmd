@@ -1,0 +1,49 @@
+---
+title: "R-shinylive"
+format:
+  html:
+    resources:
+      - shinylive-sw.js
+filters: 
+  - shinylive
+---
+
+```{shinylive-r}
+#| standalone: true
+#| viewerHeight: 600
+library(shiny)
+nfl_team_statistics <- read_csv("~/Desktop/Repos/SYE/project1/nfl_team_statistics.csv")
+nfl_team_statistics
+
+# Define UI ----
+ui <- fluidPage(
+  titlePanel("NFL"),
+  tabsetPanel(
+    tabPanel("Offense Completions",
+      sidebarLayout(
+        sidebarPanel(
+          selectizeInput(inputId = "team",
+                         label = "Choose a team",
+                         choices = unique(nfl_team_statistics$team),
+                         selected = "NE")
+        ),
+        mainPanel(
+          plotOutput(outputId = "plot")
+        )
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  output$plot <- renderPlot({
+    one_team <- nfl_team_statistics |> filter(team == input$team)
+    ggplot(data = one_team, aes(x = season, y = offense_completion_percentage)) +
+      geom_line()
+  })
+
+}
+
+shinyApp(ui, server)
+```
+
