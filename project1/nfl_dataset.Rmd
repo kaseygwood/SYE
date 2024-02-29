@@ -53,12 +53,15 @@ View(nfl_team_statistics)
 
 
 nfl r packages 
-```{sh}
+```{r}
 install.packages("nflverse")
 library(nflreadr)
 library(nflverse)
 # loads play-by-play data from 2019
 nfl_2019 <- load_pbp(2019)
+# loads player stats
+player_stats <- load_player_stats(seasons = TRUE)
+View(player_stats)
 ```
 
 ```{r}
@@ -119,7 +122,73 @@ pbp_rp |>
   filter(plays > 20)
 ```
 
+Comparing Quarterbacks
+```{r}
+library(tidyverse)
+qbs <- player_stats |> 
+  filter(position == "QB")
+View(qbs)
+```
 
+```{r}
+# Make a quarterback dataset
+test <- qbs |> 
+  group_by(player_id, season) |> 
+  summarise(
+    player_display_name = first(player_display_name), 
+    mean_passing = mean(passing_yards), 
+            n = n())
+```
+
+```{r}
+tb = test |> filter(player_display_name == "Tom Brady")
+View(tb)
+pm = test |> filter(player_display_name == "Patrick Mahomes" | player_display_name == "Josh Allen")
+tb
+View(pm)
+ggplot(data = pm, aes(x = season, y = mean_passing, colour = player_display_name)) +
+  geom_line() +
+  labs(title = "QB v. QB Passing Yards", 
+       x = "Season", 
+       y = "Average Passing Yards", 
+       colour = "Player")
+
+```
+
+
+```{r}
+test <- qbs |> 
+  group_by(player_id, season) |> 
+  summarise(
+    player_display_name = first(player_display_name), 
+    mean_passing = mean(passing_yards),
+    completion_percentage = mean(completions/attempts),
+    total_epa = mean(rushing_epa+passing_epa),
+    total_touchdowns = sum(passing_tds + rushing_tds),
+    n = n())
+test <- test |> filter(season == 1999)
+
+View(qbs)
+```
+
+App Ideas:
+Edit the data so can select any qb stat to compare
+Make a table to show the highest season?
+Add EPA
+Touchdown/Interception Ratio
+
+split strings
+```{r}
+test
+```
+
+
+
+
+```{r}
+library(shinycssloaders)
+install.packages("shinycssloaders")
+```
 
 
 

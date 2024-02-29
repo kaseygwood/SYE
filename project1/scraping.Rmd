@@ -1,0 +1,100 @@
+---
+title: "Scraping Data"
+output: html_document
+date: "2024-02-27"
+---
+
+```{r}
+library(rvest)
+library(tidyverse)
+url <- "https://www.pro-football-reference.com/players/B/BreeDr00.htm"
+document <- read_html(url)
+document
+document |> html_elements(xpath = "//*[contains(@class, 'summary-class')]")
+# this actually printed nodesets
+document |> html_elements("p")
+document |> html_element("p")
+# This actually shows all the data from the website, but as sentences.
+document |> html_elements("p") |> html_text2()
+test <- document |> html_elements("p") |> html_text2()
+test[3]
+```
+
+# Design the Scraping so it works in shiny with any of the players
+```{r}
+url = "https://www.pro-football-reference.com/players/"
+first_initial = "B/"
+name = "BreeDr" # first four of last name and first two of first name
+end = "00.htm"
+document <- read_html(paste(url, first_initial, name, end, sep = ""))
+document |> html_elements("p")
+
+
+```
+
+So we need a way to split names so we can get the last name initial and rearrange the names... So mutate so these are added to the dataset?
+```{r}
+library(tidyverse)
+player_stats <- read_csv("project1/player_stats.csv")
+qbs <- player_stats |> 
+  filter(position == "QB") 
+player_row <- qbs |> filter(player_display_name == "Tom Brady")
+######## new code
+# separate first and last name
+scrap <- separate(player_row, col = player_display_name, into = c('first', 'last'), sep = ' ')
+# Get the first row so we can mess with it
+first_row <- slice(scrap, 1)
+# need the last initial for the string
+last_initial <- substr(first_row$last, 1, 1)
+# need the first four letters of the last name ** if the last name is shorter at x's to replace missing letters
+last_firstfour <- substr(first_row$last, 1, 4)
+x_needed <- 4 - nchar(last_firstfour)
+while (x_needed > 0){
+  last_firstfour <- paste0(last_firstfour, "x")
+}
+# need the first two letters of the first name
+first_firsttwo <- substr(first_row$first, 1, 2)
+begin <- "https://www.pro-football-reference.com/players/"
+# now bring all of these together
+url <- paste0(begin, last_initial, "/", last_firstfour, first_firsttwo, "00.htm")
+webpage <- read_html(url)
+webpage_text <- webpage |> html_elements("p") |> html_text2()
+```
+
+working through getting three names through
+```{r}
+
+```
+
+test last_firstfour on three letters
+```{r}
+test <- substr("Roh", 1, 4)
+x_needed <- 4 - nchar(test)
+for (i in x_needed){
+  test <- paste0(test, "x")
+}
+
+```
+
+```{r}
+player_data <- read_csv("project1/player_stats.csv")
+player_name <- "Tom Brady"  # Replace "YourPlayerName" with an actual player name
+player_data <- player_data |> filter(player_display_name == "Tom Brady")
+first_row <- slice(player_data, 1)
+scrap <- separate(first_row, col = player_display_name, into = c('first', 'last'), sep = ' ')
+last_initial <- substr(scrap$last, 1, 1)
+last_firstfour <- substr(scrap$last, 1, 4)
+x_needed <- 4 - nchar(last_firstfour)
+while (x_needed > 0) {
+  last_firstfour <- paste0(last_firstfour, "x")
+  x_needed <- x_needed - 1
+}
+first_firsttwo <- substr(first_row$first, 1, 2)
+begin <- "https://www.pro-football-reference.com/players/"
+url <- paste0(begin, last_initial, "/", last_firstfour, first_firsttwo, "00.htm")
+print(url)
+
+```
+
+
+
