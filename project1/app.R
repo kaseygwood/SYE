@@ -4,10 +4,22 @@ library(shinycssloaders)
 library(RCurl)
 library(httr)
 library(rvest)
+library(formattable)
+library(DT)
+library(tableHTML)
+library(reactable)
+library(reactablefmtr)
+library(spsComps)
+source("scraping_functions.R")
 
 player_stats <- read_csv("player_stats.csv")
 qbs <- player_stats |> 
   filter(position == "QB") 
+customRed = "#ff7f7"
+orange_pal <- function(x) rgb(colorRamp(c("#ffe4cc", "#ffb54d"))(x), maxColorValue = 255)
+
+
+
 
 ui <- fluidPage(
   titlePanel("NFL"),
@@ -21,19 +33,15 @@ ui <- fluidPage(
                                 label = "Choose a Player",
                                 choices = unique(qbs$player_display_name),
                                 # can select up to three players
-                                options = list(maxItems = 3)),
+                                options = list(maxItems = 5)),
                  # Choosing the stat to use 
-                 radioButtons(inputId = "stat",
-                                label = "Choose a Stat",
-                                choices = c("Completion Percentage", "Passing Yards", "Total EPA"),
-                                selected = "Passing Yards")
+                 actionButton("generateButton", "Generate")
                  
                ),
                mainPanel(
                  # output the qb plots 
                  # with spinner shows loading bars when the plot is changing
-                 withSpinner(plotOutput(outputId = "plot")),
-                 withSpinner(htmlOutput(outputId = "Bio"))
+                 withSpinner(reactableOutput(outputId = "qb_table"))
                )
              )
     ), 
@@ -115,70 +123,120 @@ server <- function(input, output, session) {
     
 
   })
-  bio <- reactive({
-    if (is.null(input$Player1)){
-      return(HTML(paste("Please select a player.")))
-    }
-    else{
-      bios <- list()
-      for (player_name in input$Player1){
-        # Web scraping
-        player_data <- players |> 
-          filter(player_display_name == player_name)
-        
-        if (nrow(player_data) == 0){
-          return(HTML(paste("Player not found.")))
-        }
-        else{    
-        # Get the first row so we can mess with it
-        first_row <- slice(player_data, 1)
-        # separate first and last name
-        scrap <- separate(first_row, col = player_display_name, into = c('first', 'last'), sep = ' ')
-        # need the last initial for the string
-        last_initial <- substr(scrap$last, 1, 1)
-        # need the first four letters of the last name ** if the last name is shorter at x's to replace missing letters
-        last_firstfour <- substr(scrap$last, 1, 4)
-        x_needed <- 4 - nchar(last_firstfour)
-        while (x_needed > 0){
-          last_firstfour <- paste0(last_firstfour, "x")
-          x_needed <- x_needed - 1
-        }
-        # need the first two letters of the first name
-        first_firsttwo <- substr(scrap$first, 1, 2)
-        begin <- "https://www.pro-football-reference.com/players/"
-        # now bring all of these together
-        url <- paste0(begin, last_initial, "/", last_firstfour, first_firsttwo, "00.htm")
-        # check url
-        tryCatch({
-          response <- httr::GET(url)
-          if (httr::status_code(response) == 200){
-            webpage <- read_html(response)
-            webpage_text <- webpage |> html_elements("p") |> html_text2()
-            name <- paste(webpage_text[1])
-            h_w <- paste("Height & Weight: ", webpage_text[3])
-            born <- paste(webpage_text[4])
-            bios[[player_name]] <- HTML(paste("<br/>", name, h_w, born, sep = "<br/>"))
-          } else{
-            bios[[player_name]] <- HTML(paste("There is no info on this player in reference."))
-          }
   
-        }, error = function(e){
-          print(e)
-          bios[[player_name]] <- HTML(paste("An error occurred while retrieving player information."))
-        })
-      }
-      }
-      do.call(tagList, bios)
-    }
+  observeEvent(input$generateButton, {
+    player_names <- input$Player1
+    df<- generate_dataframe_new(player_names)
+    df <- df |> mutate_at(vars(c('G', 'AV', 'Cmp%', 'Yds', 'Y/A', 'TD', 'Int', 'FantPt')), as.numeric)
+    output$qb_table <- renderReactable({
+      reactable(df,
+                fullWidth = FALSE,
+                searchable = TRUE,
+                highlight = TRUE,
+                style = list(maxWidth = "100%", overflowX = "auto"),
+                columns = list(
+                  TD = colDef(
+                    style = function(value){
+                      if (length(df$TD) > 1 && !any(is.na(df$TD))){
+                        normalized <- (value - min(df$TD)) / (max(df$TD) - min(df$TD))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else {
+                        list(background = "transparent")
+                      }
+                    }
+                  ),
+                  G = colDef(
+                    style = function(value){
+                      if (length(df$G) > 1 && !any(is.na(df$G))){
+                        normalized <- (value - min(df$G)) / (max(df$G) - min(df$G))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                      
+                    }
+                  ),
+                  AV = colDef(
+                    style = function(value){
+                      if (length(df$AV) > 1 && !any(is.na(df$AV))){
+                        normalized <- (value - min(df$AV)) / (max(df$AV) - min(df$AV))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                      
+                    }
+                  ),
+                  'Cmp%' = colDef(
+                    style = function(value){
+                      if (length(df$'Cmp%') > 1 && !any(is.na(df$'Cmp%'))){
+                        normalized <- (value - min(df$'Cmp%')) / (max(df$'Cmp%') - min(df$'Cmp%'))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                    }
+                  ),
+                  Yds = colDef(
+                    style = function(value){
+                      if (length(df$Yds) > 1 && !any(is.na(df$Yds))){
+                        normalized <- (value - min(df$Yds)) / (max(df$Yds) - min(df$Yds))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                      
+                    }
+                  ),
+                  'Y/A' = colDef(
+                    style = function(value){
+                      if (length(df$'Y/A') > 1 && !any(is.na(df$'Y/A'))){
+                        normalized <- (value - min(df$'Y/A')) / (max(df$'Y/A') - min(df$'Y/A'))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                    }
+                  ),
+                  Int = colDef(
+                    style = function(value){
+                      if (length(df$Int) > 1 && !any(is.na(df$Int))){
+                        normalized <- (value - min(df$Int)) / (max(df$Int) - min(df$Int))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                    }
+                  ),
+                  FantPt = colDef(
+                    style = function(value){
+                      if (length(df$FantPt) > 1 && !any(is.na(df$FantPt))){
+                        normalized <- (value - min(df$FantPt)) / (max(df$FantPt) - min(df$FantPt))
+                        color <- orange_pal(normalized)
+                        list(background = color)
+                      } else{
+                        list(background = "transparent")
+                      }
+                    }
+                  )
+                )
+      )
+      
+      
+    })
   })
-
-  output$Bio <- renderUI(
-    bio()
-  )
+  
 
 
   
-  # Table output
+  #Table output
   output$table <- renderTable(
     players |> filter(season == input$season) |> 
       select(player_display_name, total_touchdowns) |> 
