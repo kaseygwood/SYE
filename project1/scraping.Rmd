@@ -7,18 +7,39 @@ date: "2024-02-27"
 ```{r}
 library(rvest)
 library(tidyverse)
-url <- "https://www.pro-football-reference.com/players/B/BreeDr00.htm"
+url <- "https://www.pro-football-reference.com/players/F/FlacJo00.htm"
 document <- read_html(url)
+document |> html_table(fill = TRUE) |> .[1] |> as.data.frame()
 document
 document |> html_elements(xpath = "//*[contains(@class, 'summary-class')]")
+document |> html_elements(".tracklist")
 # this actually printed nodesets
 document |> html_elements("p")
 document |> html_element("p")
 # This actually shows all the data from the website, but as sentences.
 document |> html_elements("p") |> html_text2()
 test <- document |> html_elements("p") |> html_text2()
+which(test == "Career")
+# if the index above career is equal to 2023 then go by 2 so the first would be test[i+2] then test [i+4]
 test[3]
 ```
+
+# Create a Data Table to compare qbs
+```{r}
+stat_names <- c("QBs", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
+stats <- c("Tom Brady", test[11], test[12], test[13], test[14], test[15], test[16], test[17], test[18], test[19])
+stats <- 
+df <- data.frame(stat_names, stats)
+View(df)
+```
+
+```{r}
+url <- "https://www.pro-football-reference.com/players/A/AlleJo00.htm"
+document <- read_html(url)
+test <- document |> html_elements("p") |> html_text2()
+```
+
+
 
 # Design the Scraping so it works in shiny with any of the players
 ```{r}
@@ -76,25 +97,285 @@ for (i in x_needed){
 
 ```
 
+
+get_url function
 ```{r}
-player_data <- read_csv("project1/player_stats.csv")
-player_name <- "Tom Brady"  # Replace "YourPlayerName" with an actual player name
-player_data <- player_data |> filter(player_display_name == "Tom Brady")
-first_row <- slice(player_data, 1)
-scrap <- separate(first_row, col = player_display_name, into = c('first', 'last'), sep = ' ')
-last_initial <- substr(scrap$last, 1, 1)
-last_firstfour <- substr(scrap$last, 1, 4)
-x_needed <- 4 - nchar(last_firstfour)
-while (x_needed > 0) {
-  last_firstfour <- paste0(last_firstfour, "x")
-  x_needed <- x_needed - 1
-}
-first_firsttwo <- substr(first_row$first, 1, 2)
-begin <- "https://www.pro-football-reference.com/players/"
-url <- paste0(begin, last_initial, "/", last_firstfour, first_firsttwo, "00.htm")
-print(url)
+  player_stats <- read_csv("project1/player_stats.csv")
+  player_data <- player_stats |> 
+    filter(player_display_name == "Tom Brady")
+  first_row <- slice(player_data, 1)
+  scrap <- separate(first_row, 
+                    col = player_display_name, 
+                    into = c('first', 'last'), 
+                    sep = ' ')
+  # separate first and last name
+  scrap <- separate(first_row, col = player_display_name, into = c('first', 'last'), sep = ' ')
+  # need the last initial for the string
+  last_initial <- substr(scrap$last, 1, 1)
+  # need the first four letters of the last name ** if the last name is shorter at x's to replace missing letters
+  last_firstfour <- substr(scrap$last, 1, 4)
+  x_needed <- 4 - nchar(last_firstfour)
+  while (x_needed > 0){
+    last_firstfour <- paste0(last_firstfour, "x")
+    x_needed <- x_needed - 1
+  }
+  # need the first two letters of the first name
+  first_firsttwo <- substr(scrap$first, 1, 2)
+  begin <- "https://www.pro-football-reference.com/players/"
+  number<- 0
+  # now bring all of these together
+  url <- paste0(begin, last_initial, "/", last_firstfour, first_firsttwo, "0", number, ".htm")
+url
+webpage <- read_html(url)
+webpage_text <- webpage |> html_elements("p") |> html_text2()
+
+  while (!grepl("QB", webpage_text[2])){
+    number = number + 1
+    url <- paste0(begin, last_initial, "/", last_firstfour, first_firsttwo, "0", number, ".htm")
+    webpage <- read_html(url)
+    webpage_text <- webpage |> html_elements("p") |> html_text2()
+  }
+url
 
 ```
+
+```{r}
+  # Make an empty dataframe with columns
+  columns = c("QB", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
+  df = data.frame(matrix(nrow = 0, ncol = length(columns)))
+  colnames(df) = columns
+
+    document <- read_html(url)
+    url_text <- document |> html_elements("p") |> html_text2()
+
+    
+    i <- which(url_text == "Career")
+    if ((url_text[i-1] == "2023")){
+      player <- c("Josh Allen", as.numeric(url_text[i+2]), as.numeric(url_text[i+4]), url_text[i+6], as.numeric(url_text[i+8]), as.numeric(url_text[i+10]), as.numeric(url_text[i+12]), as.numeric(url_text[i+14]), as.numeric(url_text[i+16]), as.numeric(url_text[i+18]))
+      df <- rbind(df, player)
+    } else{
+      player <- c("Josh Allen", as.numeric(url_text[i+1]), as.numeric(url_text[i+2]), url_text[i+3], as.numeric(url_text[i+4]), as.numeric(url_text[i+5]), as.numeric(url_text[i+6]), as.numeric(url_text[i+7]), as.numeric(url_text[i+8]), as.numeric(url_text[i+9]))
+      df <- rbind(df, player)
+    }
+  colnames(df) = c("QB", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
+reshaped_data <- df |> pivot_longer(cols = -QB,
+  names_to = "Statistics",
+  values_to = "Value"
+)
+
+reshaped_data |> pivot_wider(names_from = QB, values_from = Value)
+```
+
+
+
+# Scraping the specific tables off pro football reference testing
+```{r}
+url <- "https://www.pro-football-reference.com/players/B/BradTo00.htm"
+document <- read_html(url)
+# gets all the tables off the url
+tbls <- html_nodes(document, "table")
+# puts all the tables in a list containing each as a dataframe
+tables <- lapply(tbls, function(tbl){
+  html_table(tbl)
+})
+# Regular Season passing table
+tables[[1]]
+# Playoffs Passing Table
+tables[[2]]
+# Advanced Passing Table (Air Yards)
+tables[[3]]
+# Advanced Passing Table (Accuracy)
+tables[[4]]
+# Advanced Passing Table (Pressure)
+tables[[5]]
+# Advanced Passing Table (Play Type)
+tables[[6]]
+# Adjusted Passing (Regular Season)
+tables[[7]]
+# Rushing & Receiving (Regular Season)
+tables[[8]]
+# Rushing & Receiving (Playoffs)
+tables[[9]]
+# Defense & Fumbles (Regular Season)
+tables[[10]]
+# Defense & Fumbles (Playoffs)
+tables[[11]]
+# Punting (Regular Season)
+tables[[12]]
+# Punting (Playoffs)
+tables[[13]]
+```
+
+```{r}
+library(XML)
+tbls_xml <- readHTMLTable(url)
+```
+
+```{r}
+setwd("/Users/kaseywood/Desktop/Repos/SYE/project1")
+getwd()
+source("scraping_functions.R")
+```
+
+Testing the tables scraping
+```{r}
+
+tables <- get_tables("Tom Brady")
+test <-tables[[1]]
+names(test)
+# Add a row to count the number of top stats
+test$counts <- 0
+# Delete the last three rows that are irrelevant
+test <- test[seq(nrow(test) - 3), ]
+# function to check and update counts based on max value in each numeric column
+update_counts <- function(col, counts) {
+  max_val <- max(col, na.rm = TRUE) # get max value in the column
+  if_else(col == max_val & !is.na(col), counts + 1, counts)
+}
+# Get the name of the column at index 27
+column_name <- names(test)[27]
+# Find the indices of columns with the same name
+same_name_indices <- which(names(test) == column_name)
+# Assuming you want to rename the second column with the same name
+column_index_to_rename <- same_name_indices[2]
+# Rename the column using its name
+test <- test |>
+  rename(Yds = !!column_name, Yds2 = !!column_index_to_rename)
+
+# CONSIDER TAKING OUT ROWS THAT ONLY HAVE a few games
+boop2 <- test |> mutate(counts = ifelse(Cmp == max(Cmp, na.rm = TRUE) &
+                                         !is.na(Cmp), counts + 1, counts))|>
+  mutate(counts = ifelse(Yds == max(Yds, na.rm = TRUE) &
+                                         !is.na(Yds), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Cmp%` == max(`Cmp%`, na.rm = TRUE) &
+                                         !is.na(`Cmp%`), counts + 1, counts)) |>
+  mutate(counts = ifelse(TD == max(TD, na.rm = TRUE) &
+                                         !is.na(TD), counts + 1, counts)) |>
+  mutate(counts = ifelse(`TD%` == max(`TD%`, na.rm = TRUE) &
+                                         !is.na(`TD%`), counts + 1, counts)) |>
+  mutate(counts = ifelse(Int == min(Int, na.rm = TRUE) &
+                                         !is.na(Int), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Int%` == min(`Int%`, na.rm = TRUE) &
+                                         !is.na(`Int%`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`1D` == max(`1D`, na.rm = TRUE) &
+                                         !is.na(`1D`), counts + 1, counts)) |>
+  mutate(counts = ifelse(TD == max(TD, na.rm = TRUE) &
+                                         !is.na(TD), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Succ%` == max(`Succ%`, na.rm = TRUE) &
+                                         !is.na(`Succ%`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Y/A` == max(`Y/A`, na.rm = TRUE) &
+                                         !is.na(`Y/A`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`AY/A` == max(`AY/A`, na.rm = TRUE) &
+                                         !is.na(`AY/A`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Y/C` == max(`Y/C`, na.rm = TRUE) &
+                                         !is.na(`Y/C`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Y/G` == max(`Y/G`, na.rm = TRUE) &
+                                         !is.na(`Y/G`), counts + 1, counts)) |>
+  mutate(counts = ifelse(Rate == max(Rate, na.rm = TRUE) &
+                                         !is.na(Rate), counts + 1, counts)) |>
+  mutate(counts = ifelse(QBR == max(QBR, na.rm = TRUE) &
+                                         !is.na(QBR), counts + 1, counts)) |>
+  mutate(counts = ifelse(Sk == min(Sk, na.rm = TRUE) &
+                                         !is.na(Sk), counts + 1, counts)) |>
+  # Yards lost due to sacks
+  mutate(counts = ifelse(Yds2 == min(Yds2, na.rm = TRUE) &
+                                         !is.na(Yds2), counts + 1, counts)) |>
+  mutate(counts = ifelse(`Sk%` == min(`Sk%`, na.rm = TRUE) &
+                                         !is.na(`Sk%`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`NY/A` == max(`NY/A`, na.rm = TRUE) &
+                                         !is.na(`NY/A`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`ANY/A` == max(`ANY/A`, na.rm = TRUE) &
+                                         !is.na(`ANY/A`), counts + 1, counts)) |>
+  mutate(counts = ifelse(`4QC` == max(`4QC`, na.rm = TRUE) &
+                                         !is.na(`4QC`), counts + 1, counts)) |>
+  mutate(counts = ifelse(GWD == max(GWD, na.rm = TRUE) &
+                                         !is.na(GWD), counts + 1, counts)) |>
+  mutate(counts = ifelse(AV == max(AV, na.rm = TRUE) &
+                                         !is.na(AV), counts + 1, counts))
+  
+boop2 <- boop2|> filter(counts == max(counts))
+
+View(boop2)
+```
+
+```{r}
+tables <- get_tables("Troy Aikman")
+test <-tables[[1]]
+column_names <- colnames(test)
+empty_df <- data.frame(matrix(ncol = length(column_names), nrow = 0))
+colnames(empty_df) <- column_names
+# Get the name of the column at index 27
+column_name <- names(test)[27]
+# Find the indices of columns with the same name
+same_name_indices <- which(names(test) == column_name)
+# Assuming you want to rename the second column with the same name
+column_index_to_rename <- same_name_indices[2]
+# Rename the column using its name
+test <- test |>
+  rename(Yds = !!column_name, Yds2 = !!column_index_to_rename)
+
+# Get rid of the last rows
+unique_teams <- test |> summarise(ut = n_distinct(Tm))
+
+unique_teams <- unique_teams$ut
+# Checking if the player has only played on one time
+if (unique_teams == 2){
+  test <- test |> slice(1:(nrow(test) - 1)) # slice the last row
+} else if (unique_teams > 2){
+  test <- test |> slice(1:(nrow(test) - unique_teams))
+}
+
+View(test)
+# Get best season using AV
+final <- test |> filter(AV == max(AV))
+```
+
+```{r}
+player_names <- c("Josh Allen", "Tom Brady")
+df <- best_game_table(player_names)
+View(df)
+```
+
+# best game table
+```{r}
+tables <- get_tables(player_names)
+result_df <- data.frame()
+categorical_data <- data.frame()
+for (name in player_names){
+  tables <- get_tables(name)
+  test <-tables[[1]]
+  # Rename the yds column 
+  test <- test |>
+    rename(yds = 12)
+  # Get rid of the last rows
+  # Determine the number of distinct teams
+  unique_teams <- test |> summarise(ut = n_distinct(Tm))
+  unique_teams <- unique_teams$ut
+  # Checking if the player has only played on one team
+  if (unique_teams == 2){
+    test <- test |> slice(1:(nrow(test) - 1)) # slice the last row
+  # Checking if the player has played on more than 1 team and slicing the necessary rows
+  } else if (unique_teams > 2){
+    test <- test |> slice(1:(nrow(test) - unique_teams))
+  }
+  # Determine the players best season based on AV
+  final <- test |> filter(AV == max(AV))
+  rows <- test |> nrow()
+  if (rows > 1){
+    final <- final |> filter(`Cmp%` == max(`Cmp%`))
+  }
+  result_df <- bind_rows(result_df, final)
+}
+result_df$Year <- as.numeric(gsub("[^0-9]", "", result_df$Year)) # Remove non-numeric characters
+result_df$Age <- as.numeric(gsub("[^0-9]", "", result_df$Age)) # Remove non-numeric characters
+df <- data.matrix(result_df)
+df <- t(df)
+df <- data.frame(df)
+colnames(df) = names
+df
+```
+
+
 
 
 

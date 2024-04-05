@@ -36,54 +36,10 @@ get_url <- function(name){
   return(url)
 }
 
-
-# BUG WITH 2023 PLAYERS NEED TO FIX THOSE ONES
-# Take two names and produce a dataframe
-generate_dataframe <- function(name1, name2 = NULL){
-  # Make a column for stat labels
-  QB <- c("G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
-  # call the get url function to get the url
-  url1 <- get_url(name1)
-  document1 <- read_html(url1)
-  url_text1 <- document1 |> html_elements("p") |> html_text2()
-  # paste the stats we want into a tibble
-  # Fix the different index issue by finding the index of the "Career" line
-  i <- which(url_text1 == "Career")
-  # Now get the correct index no matter how many lines a player has
-  # if the index above career is equal to 2023 
-  # then go by 2 so the first would be test[i+2] then test [i+4]
-  if (url_text1[i-1] == "2023") {
-    # adjust the stats if the player is also a 2023 player
-    player1 <- c(url_text1[i+2], url_text1[i+4], url_text1[i+6], url_text1[i+8], url_text1[i+10], url_text1[i+12], url_text1[i+14], url_text1[i+16], url_text1[i+18])
-  } else{
-    player1 <- c(url_text1[i+1], url_text1[i+2], url_text1[i+3], url_text1[i+4], url_text1[i+5], url_text1[i+6], url_text1[i+7], url_text1[i+8], url_text1[i+9])
-  }
-  if (!is.null(name2)){
-    # Do the same for player 2
-    url2 <- get_url(name2)
-    document2 <- read_html(url2)
-    url_text2 <- document2 |> html_elements("p") |> html_text2()
-    j <- which(url_text2 == "Career")
-    if (url_text2[j-1] == "2023"){
-      player2 <- c(url_text2[j+2], url_text2[j+4], url_text2[j+6], url_text2[j+8], url_text2[j+10], url_text2[j+12], url_text2[j+14], url_text2[j+16], url_text2[j+18])
-    } else{
-      player2 <- c(url_text2[j+1], url_text2[j+2], url_text2[j+3], url_text2[j+4], url_text2[j+5], url_text2[j+6], url_text2[j+7], url_text2[j+8], url_text2[j+9])
-    }
-    df <- data.frame(player1, career, player2)
-    names(df) <- c(name1, "career", name2)
-  } else {
-    df <- data.frame(career, player1)
-    names(df) <- c("career", name1)
-  }
-  
-
-  return(df)
-}
-
 # readjust dataframe to go a different way. 
 # add hover over stats descriptions
 # color the bigger numbers
-
+# Generate career stats dataframe
 generate_dataframe_new <- function(names){
   # Make an empty dataframe with columns
   columns = c("QB", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
@@ -107,34 +63,85 @@ generate_dataframe_new <- function(names){
     }
   }
   colnames(df) = c("QB", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
+  df <- df |> mutate_at(vars(c('G', 'AV', 'Cmp%', 'Yds', 'Y/A', 'TD', 'Int', 'FantPt')), as.numeric)
+  df <- data.matrix(df)
+  df <- t(df)
+  df <- data.frame(df)
+  colnames(df) = names
+  df <- df |> slice(-1)
   return(df)
 
 }
-
-generate_dataframe_vertical <- function(names){
-  # Make an empty dataframe with columns
-  rows = c("QB", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
-  df = data.frame(matrix(nrow = length(rows), ncol = 0))
-  rownames(df) = columns
-  
-  for (name in names) {
+# Get the tables from pro football reference as a list of tables
+get_tables<- function(names){
+  for (name in names){
     url <- get_url(name)
-    
     document <- read_html(url)
-    url_text <- document |> html_elements("p") |> html_text2()
-    
-    
-    i <- which(url_text == "Career")
-    if ((url_text[i-1] == "2023")){
-      player <- c(name, as.numeric(url_text[i+2]), as.numeric(url_text[i+4]), url_text[i+6], as.numeric(url_text[i+8]), as.numeric(url_text[i+10]), as.numeric(url_text[i+12]), as.numeric(url_text[i+14]), as.numeric(url_text[i+16]), as.numeric(url_text[i+18]))
-      df$name <- player
-    } else{
-      player <- c(name, as.numeric(url_text[i+1]), as.numeric(url_text[i+2]), url_text[i+3], as.numeric(url_text[i+4]), as.numeric(url_text[i+5]), as.numeric(url_text[i+6]), as.numeric(url_text[i+7]), as.numeric(url_text[i+8]), as.numeric(url_text[i+9]))
-      df$name <- player
+    # gets all the tables off the url
+    tbls <- html_nodes(document, "table")
+    # puts all the tables in a list containing each as a dataframe
+    tables <- lapply(tbls, function(tbl){
+      html_table(tbl)
+    })
+  }
+  return(tables)
+}
+
+# Choosing the best game from these tables
+best_game_table <- function(names, index){
+  tables <- get_tables(names[1])
+  result_df <- data.frame()
+  for (name in names){
+    tables <- get_tables(name)
+    test <-tables[[index]]
+    print(names(test))
+    # Rename the yds column 
+    test <- adjust_column_names(test)
+    print(names(test))
+    # Get rid of the last rows
+    # Determine the number of distinct teams
+    unique_teams <- test |> summarise(ut = n_distinct(Tm))
+    unique_teams <- unique_teams$ut
+    # Checking if the player has only played on one team
+    if (unique_teams == 2){
+      test <- test |> slice(1:(nrow(test) - 1)) # slice the last row
+    # Checking if the player has played on more than 1 team and slicing the necessary rows
+    } else if (unique_teams > 2){
+      test <- test |> slice(1:(nrow(test) - unique_teams))
+    }
+    # Determine the players best season based on AV
+    final <- test |> filter(AV == max(AV))
+    rows <- test |> nrow()
+    if (rows > 1){
+      final <- final |> filter(`Cmp%` == max(`Cmp%`))
+    }
+    result_df <- bind_rows(result_df, final)
+  }
+  result_df$Year <- as.numeric(gsub("[^0-9]", "", result_df$Year)) # Remove non-numeric characters
+  result_df$Age <- as.numeric(gsub("[^0-9]", "", result_df$Age)) # Remove non-numeric characters
+  df <- data.matrix(result_df)
+  df <- t(df)
+  df <- data.frame(df)
+  colnames(df) = names
+  return(df)
+}
+
+# Function to adjust column names if duplicates are found
+adjust_column_names <- function(df) {
+  # Get unique names
+  unique_names <- names(df)
+  
+  # Identify duplicate names
+  duplicate_names <- unique_names[duplicated(unique_names)]
+  
+  # Loop through duplicate names and adjust
+  for (name in duplicate_names) {
+    indices <- which(names(df) == name)
+    for (i in seq_along(indices)[-1]) {
+      new_name <- paste0(name, i)
+      names(df)[indices[i]] <- new_name
     }
   }
-  rownames(df) = c("QB", "G", "AV", "QBrec", "Cmp%", "Yds", "Y/A", "TD", "Int", "FantPt")
+  
   return(df)
-  
 }
-  
