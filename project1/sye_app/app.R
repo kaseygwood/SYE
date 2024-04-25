@@ -24,7 +24,7 @@ ui <- fluidPage(theme = shinytheme("sandstone"),
   titlePanel("NFL"),
   tabsetPanel(
     # Quarterback Tab
-    tabPanel("QB v. QB",
+    tabPanel("Career",
              sidebarLayout(
                sidebarPanel(
                  # Player Name Input
@@ -47,7 +47,7 @@ ui <- fluidPage(theme = shinytheme("sandstone"),
              )
     ), 
     # Make a section with tables that you can select the season to see the top for each season
-    tabPanel("Tables",
+    tabPanel("Best Season",
              sidebarLayout(
                sidebarPanel(
                  # Select season

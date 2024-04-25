@@ -87,17 +87,47 @@ get_tables<- function(names){
   return(tables)
 }
 
+best_year <- function(name){
+  tables <- get_tables(name)
+  result_df <- data.frame()
+  test <-tables[[1]]
+  # Rename the yds column 
+  test <- adjust_column_names(test)
+  # Get rid of the last rows
+  # Determine the number of distinct teams
+  unique_teams <- test |> summarise(ut = n_distinct(Tm))
+  unique_teams <- unique_teams$ut
+  # Checking if the player has only played on one team
+  if (unique_teams == 2){
+    test <- test |> slice(1:(nrow(test) - 1)) # slice the last row
+    # Checking if the player has played on more than 1 team and slicing the necessary rows
+  } else if (unique_teams > 2){
+    test <- test |> slice(1:(nrow(test) - unique_teams))
+  }
+  if ("AV" %in% colnames(test)){
+    test <- test |> filter(AV == max(AV))
+  }
+  ################ DETERMINE NEW TEST OTHER THAN AV FOR BEST SEASON
+  rows <- test |> nrow()
+  if (rows > 1){
+    test <- test |> filter(`Cmp%` == max(`Cmp%`))
+  }
+  result_df <- bind_rows(result_df, test)
+  print(result_df)
+  result_df$Year <- as.numeric(gsub("[^0-9]", "", result_df$Year))
+  
+  year <- result_df$Year
+  return(year)
+}
+
 # Choosing the best game from these tables
 best_game_table <- function(names, index){
-  tables <- get_tables(names[1])
   result_df <- data.frame()
   for (name in names){
     tables <- get_tables(name)
     test <-tables[[index]]
-    print(names(test))
     # Rename the yds column 
     test <- adjust_column_names(test)
-    print(names(test))
     # Get rid of the last rows
     # Determine the number of distinct teams
     unique_teams <- test |> summarise(ut = n_distinct(Tm))
@@ -110,19 +140,26 @@ best_game_table <- function(names, index){
       test <- test |> slice(1:(nrow(test) - unique_teams))
     }
     # Determine the players best season based on AV
-    final <- test |> filter(AV == max(AV))
+    test$Year <- as.numeric(gsub("[^0-9]", "", test$Year))
+    if ("AV" %in% colnames(test)){
+      test <- test |> filter(AV == max(AV))
+    }
+    else{
+      year <- best_year(name)
+      test <- test |> filter(Year == year)
+    }
     rows <- test |> nrow()
     if (rows > 1){
-      final <- final |> filter(`Cmp%` == max(`Cmp%`))
+      test <- test |> filter(`Cmp%` == max(`Cmp%`))
     }
-    result_df <- bind_rows(result_df, final)
+    colnames(test) <- gsub("\\+", "", colnames(test))
+    result_df <- bind_rows(result_df, test)
   }
-  result_df$Year <- as.numeric(gsub("[^0-9]", "", result_df$Year)) # Remove non-numeric characters
   result_df$Age <- as.numeric(gsub("[^0-9]", "", result_df$Age)) # Remove non-numeric characters
   df <- data.matrix(result_df)
   df <- t(df)
   df <- data.frame(df)
-  colnames(df) = names
+  colnames(df) <- names
   return(df)
 }
 
